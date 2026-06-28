@@ -169,6 +169,55 @@ const findDeviceByMqttId = async (device_code) => {
   return rows[0] || null;
 };
 
+const findAllDevicesWithLatestData = async (
+  userId
+) => {
+  const [rows] = await pool.execute(
+    `
+      SELECT
+        d.id,
+        d.device_code,
+        d.field_id,
+        d.name,
+        d.threshold,
+        d.status,
+        ST_AsGeoJSON(d.location) AS location,
+
+        f.name AS field_name,
+
+        r.id AS data_id,
+        r.temperature,
+        r.humidity,
+        r.heat_index_c,
+        r.soil_adc,
+        r.created_at
+
+      FROM devices AS d
+
+      INNER JOIN fields AS f
+        ON f.id = d.field_id
+
+      LEFT JOIN device_data_realtime AS r
+        ON r.id = (
+          SELECT r2.id
+          FROM device_data_realtime AS r2
+          WHERE r2.device_id = d.id
+          ORDER BY
+            r2.created_at DESC,
+            r2.id DESC
+          LIMIT 1
+        )
+
+      WHERE f.user_id = ?
+
+      ORDER BY d.created_at DESC
+    `,
+    [userId]
+  );
+
+  return rows;
+};
+
 module.exports = {
     findDeviceByFieldId,
     createDevice,
@@ -177,4 +226,5 @@ module.exports = {
     findDeviceByDeviceCode,
     findDevicesWithLatestData,
     findDeviceByIdAndUserId,
+    findAllDevicesWithLatestData
 };

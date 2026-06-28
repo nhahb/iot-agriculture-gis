@@ -9,6 +9,8 @@ import Admin from './pages/Admin';
 import PersistLogin from './pages/PersistLogin';
 import Users from './pages/Users';
 import Device from './pages/Device';
+import Notifications from './pages/Notifications';
+import { NotificationProvider } from './context/NotificationContext';
 import { Toaster } from './components/ui/sonner';
 
 function App() {
@@ -20,7 +22,11 @@ function App() {
       <Route path="/" element={<Login />} />
       <Route path="register" element={<Register />} />
 
-      <Route path="/" element={<Layout />}>
+      <Route path="/" element={
+        <NotificationProvider>
+        <Layout />
+        </NotificationProvider>
+        }>
 
         <Route element={<PersistLogin />}>
 
@@ -29,6 +35,7 @@ function App() {
             <Route path="user">
               <Route path="account" element={<Users />} />
               <Route path="devices" element={<Device/>} />
+              <Route path="notifications" element={<Notifications />} />
             </Route>
           </Route>
 

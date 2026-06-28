@@ -1,12 +1,58 @@
+import { useState } from "react";
 import { Activity, X } from "lucide-react";
+import { toast } from "sonner";
+
 import DeviceDataCard from "./DeviceDataCard";
 
 const DeviceDataPanel = ({
   field,
   devices = [],
   onClose,
+  controlPump,
 }) => {
+  const [updatingDeviceId, setUpdatingDeviceId] =
+    useState(null);
+
   if (!field) return null;
+
+  const handleTogglePump = async (
+    selectedDevice,
+    nextPumpState
+  ) => {
+    if (typeof controlPump !== "function") {
+      toast.error(
+        "Chức năng điều khiển bơm chưa được cấu hình"
+      );
+      return;
+    }
+
+    try {
+      setUpdatingDeviceId(selectedDevice.id);
+
+      await controlPump(
+        selectedDevice.id,
+        nextPumpState
+      );
+
+      toast.success(
+        nextPumpState
+          ? "Đã gửi lệnh bật bơm"
+          : "Đã gửi lệnh tắt bơm"
+      );
+    } catch (error) {
+      console.error(
+        "Pump control error:",
+        error
+      );
+
+      toast.error(
+        error.response?.data?.message ||
+          "Gửi lệnh điều khiển bơm thất bại"
+      );
+    } finally {
+      setUpdatingDeviceId(null);
+    }
+  };
 
   return (
     <section
@@ -70,7 +116,8 @@ const DeviceDataPanel = ({
             </p>
 
             <p className="mt-1 max-w-64 text-xs leading-5 text-zinc-600">
-              Hãy thêm thiết bị vào field để bắt đầu nhận và hiển thị dữ liệu.
+              Hãy thêm thiết bị vào field để bắt đầu
+              nhận và hiển thị dữ liệu.
             </p>
           </div>
         ) : (
@@ -92,7 +139,13 @@ const DeviceDataPanel = ({
                   sm:w-[380px] sm:min-w-[380px]
                 "
               >
-                <DeviceDataCard device={device} />
+                <DeviceDataCard
+                  device={device}
+                  isPumpUpdating={
+                    updatingDeviceId === device.id
+                  }
+                  onTogglePump={handleTogglePump}
+                />
               </div>
             ))}
           </div>

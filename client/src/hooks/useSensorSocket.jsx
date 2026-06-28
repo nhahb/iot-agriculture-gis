@@ -1,9 +1,13 @@
+
 import { useEffect } from "react";
+import { toast } from "sonner";
+
 import socket from "@/api/socket";
 
 const useSensorSocket = ({
   fieldId,
   setDevices,
+  setNotifications,
 }) => {
   useEffect(() => {
     if (!fieldId) return;
@@ -22,21 +26,23 @@ const useSensorSocket = ({
         `Joining Socket.IO room field:${roomFieldId}`
       );
 
-      socket.emit("field:join", roomFieldId);
+      socket.emit(
+        "field:join",
+        roomFieldId
+      );
     };
 
-    const handleSensorUpdate = (sensorData) => {
+    const handleSensorUpdate = (
+      sensorData
+    ) => {
       console.log(
         "Received sensor:update:",
         sensorData
       );
 
-      /*
-       * Chỉ xử lý dữ liệu thuộc field đang xem.
-       * Server đã chia room, nhưng kiểm tra lại vẫn an toàn.
-       */
       if (
-        Number(sensorData.fieldId) !== roomFieldId
+        Number(sensorData.fieldId) !==
+        roomFieldId
       ) {
         return;
       }
@@ -56,6 +62,8 @@ const useSensorSocket = ({
             status: "online",
 
             latestData: {
+              ...device.latestData,
+
               temperature:
                 sensorData.temperature,
 
@@ -76,6 +84,115 @@ const useSensorSocket = ({
       );
     };
 
+    const handleDeviceStatus = (statusData) => {
+  console.log(
+    "Received device:status:",
+    statusData
+  );
+
+  if (
+    Number(statusData.fieldId) !==
+    roomFieldId
+  ) {
+    return;
+  }
+
+  setDevices((currentDevices) =>
+    currentDevices.map((device) => {
+      if (
+        Number(device.id) !==
+        Number(statusData.deviceId)
+      ) {
+        return device;
+      }
+
+      return {
+        ...device,
+
+        status:
+          statusData.deviceStatus ||
+          device.status,
+
+        pumpStatus:
+          statusData.pumpStatus,
+
+        latestData: {
+          ...device.latestData,
+
+          pumpStatus:
+            statusData.pumpStatus,
+
+          threshold:
+            statusData.threshold,
+
+          offThreshold:
+            statusData.offThreshold,
+        },
+      };
+    })
+  );
+};
+
+    const handleNotification = (
+      notification
+    ) => {
+      console.log(
+        "Received notification:new:",
+        notification
+      );
+
+      /*
+       * Hỗ trợ cả fieldId và field_id
+       * tùy dữ liệu server trả về.
+       */
+      const notificationFieldId = Number(
+        notification.fieldId ??
+          notification.field_id
+      );
+
+      if (
+        notificationFieldId !==
+        roomFieldId
+      ) {
+        return;
+      }
+
+      /*
+       * Cập nhật danh sách thông báo
+       * nếu component cha truyền setNotifications.
+       */
+      if (
+        typeof setNotifications ===
+        "function"
+      ) {
+        setNotifications(
+          (currentNotifications) => [
+            notification,
+            ...currentNotifications,
+          ]
+        );
+      }
+
+      const message =
+        notification.message ||
+        notification.title ||
+        "Có thông báo mới";
+
+      switch (notification.severity) {
+        case "critical":
+          toast.error(message);
+          break;
+
+        case "warning":
+          toast.warning(message);
+          break;
+
+        default:
+          toast.info(message);
+          break;
+      }
+    };
+
     const handleConnect = () => {
       console.log(
         "Socket connected:",
@@ -85,24 +202,40 @@ const useSensorSocket = ({
       joinFieldRoom();
     };
 
-    const handleDisconnect = (reason) => {
+    const handleDisconnect = (
+      reason
+    ) => {
       console.log(
         "Socket disconnected:",
         reason
       );
     };
 
-    socket.on("connect", handleConnect);
-    socket.on("disconnect", handleDisconnect);
+    socket.on(
+      "connect",
+      handleConnect
+    );
+
+    socket.on(
+      "disconnect",
+      handleDisconnect
+    );
+
     socket.on(
       "sensor:update",
       handleSensorUpdate
     );
 
-    /*
-     * Nếu socket chưa kết nối thì kết nối.
-     * Nếu đã kết nối do xem field trước đó thì join room ngay.
-     */
+      socket.on(
+      "device:status",
+      handleDeviceStatus
+    );
+
+    socket.on(
+      "notification:new",
+      handleNotification
+    );
+
     if (!socket.connected) {
       socket.connect();
     } else {
@@ -121,6 +254,16 @@ const useSensorSocket = ({
       );
 
       socket.off(
+  "device:status",
+  handleDeviceStatus
+);
+
+      socket.off(
+        "notification:new",
+        handleNotification
+      );
+
+      socket.off(
         "connect",
         handleConnect
       );
@@ -130,7 +273,11 @@ const useSensorSocket = ({
         handleDisconnect
       );
     };
-  }, [fieldId, setDevices]);
+  }, [
+    fieldId,
+    setDevices,
+    setNotifications,
+  ]);
 };
 
 export default useSensorSocket;

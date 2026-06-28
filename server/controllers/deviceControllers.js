@@ -1,6 +1,9 @@
 const deviceModel = require('../model/device.model');
 const fieldModel = require('../model/field.model');
 const deviceDataModel = require('../model/deviceData.model');
+const {
+  publishPumpCommand,
+} = require("../mqtt/mqttClient");
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -451,4 +454,170 @@ exports.createDevice = async (req, res) => {
         console.error('Error creating device:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
+};
+
+exports.controlPump = async (req, res) => {
+  const { deviceId } = req.params;
+
+  const pump = String(
+    req.body.pump || ""
+  ).toLowerCase();
+
+  if (!["on", "off"].includes(pump)) {
+    return res.status(400).json({
+      message:
+        'Lệnh máy bơm phải là "on" hoặc "off"',
+    });
+  }
+
+  try {
+    const device =
+      await deviceModel.findDeviceByIdAndUserId(
+        deviceId,
+        req.id
+      );
+
+    if (!device) {
+      return res.status(404).json({
+        message: "Không tìm thấy thiết bị",
+      });
+    }
+
+    await publishPumpCommand(
+      pump
+    );
+
+    return res.status(200).json({
+      message:
+        pump === "on"
+          ? "Đã gửi lệnh bật máy bơm"
+          : "Đã gửi lệnh tắt máy bơm",
+      pump,
+    });
+  } catch (error) {
+    console.error(
+      "Control pump error:",
+      error.stack || error
+    );
+
+    return res.status(500).json({
+      message:
+        error.message ||
+        "Không thể gửi lệnh điều khiển máy bơm",
+    });
+  }
+};
+
+exports.getAllDevice = async (req, res) => {
+  try {
+    const userId =
+      req.user?.id ??
+      req.id;
+
+    const { fieldId } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        message:
+          "Không xác định được người dùng",
+      });
+    }
+
+    let rows;
+
+    /*
+     * Có fieldId:
+     * lấy thiết bị của một khu vực.
+     *
+     * Không có fieldId:
+     * lấy toàn bộ thiết bị của người dùng.
+     */
+    if (fieldId) {
+      const normalizedFieldId =
+        Number(fieldId);
+
+      if (
+        !Number.isInteger(
+          normalizedFieldId
+        ) ||
+        normalizedFieldId <= 0
+      ) {
+        return res.status(400).json({
+          message:
+            "fieldId không hợp lệ",
+        });
+      }
+
+      rows =
+        await deviceModel.findDevicesWithLatestData(
+          normalizedFieldId,
+          userId
+        );
+    } else {
+      rows =
+        await deviceModel.findAllDevicesWithLatestData(
+          userId
+        );
+    }
+
+    const devices = rows.map((row) => {
+      let location = row.location;
+
+      if (typeof location === "string") {
+        try {
+          location =
+            JSON.parse(location);
+        } catch {
+          location = null;
+        }
+      }
+
+      return {
+        id: row.id,
+        deviceCode: row.device_code,
+        fieldId: row.field_id,
+        fieldName: row.field_name,
+        name: row.name,
+        threshold: row.threshold,
+        status: row.status,
+        location,
+
+        latestData: row.data_id
+          ? {
+              id: row.data_id,
+
+              temperature:
+                row.temperature,
+
+              humidity:
+                row.humidity,
+
+              heatIndexC:
+                row.heat_index_c,
+
+              soilAdc:
+                row.soil_adc,
+
+              created_at:
+                row.created_at,
+            }
+          : null,
+      };
+    });
+
+    return res.status(200).json({
+      devices,
+      total: devices.length,
+    });
+  } catch (error) {
+    console.error(
+      "Get devices error:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        "Không thể lấy danh sách thiết bị",
+    });
+  }
 };

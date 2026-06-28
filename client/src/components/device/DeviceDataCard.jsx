@@ -2,10 +2,12 @@ import {
   Thermometer,
   Droplets,
   Sprout,
-  Gauge,
+  Power,
   Clock3,
   Cpu,
+  LoaderCircle
 } from "lucide-react";
+import { Button } from "../ui/button";
 
 import SensorMetricCard from "./SensorMetricCard";
 
@@ -100,7 +102,11 @@ const getSoilProgressColor = (percentage) => {
   return "bg-emerald-500";
 };
 
-const DeviceDataCard = ({ device }) => {
+const DeviceDataCard = ({
+  device,
+  onTogglePump,
+  isPumpUpdating = false,
+}) => {
   const latestData = device.latestData;
 
   const soilPercentage = convertSoilAdcToPercent(
@@ -116,6 +122,29 @@ const DeviceDataCard = ({ device }) => {
 
   const soilProgressColor =
     getSoilProgressColor(soilPercentage);
+
+  const rawPumpStatus =
+    latestData?.pumpStatus ??
+    device.pumpStatus ??
+    false;
+
+  const isPumpOn =
+    rawPumpStatus === true ||
+    rawPumpStatus === 1 ||
+    rawPumpStatus === "1" ||
+    String(rawPumpStatus).toLowerCase() === "on";
+
+  const canControlPump =
+    normalizedStatus === "online" &&
+    !isPumpUpdating;
+
+  const handleTogglePump = async () => {
+    if (!canControlPump || !onTogglePump) {
+      return;
+    }
+
+    await onTogglePump(device, !isPumpOn);
+  };
 
   return (
     <article
@@ -198,12 +227,63 @@ const DeviceDataCard = ({ device }) => {
             unit="%"
           />
 
-          <SensorMetricCard
-            icon={Gauge}
-            label="Cảm nhận"
-            value={latestData?.heatIndexC}
-            unit="°C"
-          />
+          {/* PUMP STATUS */}
+          <div
+            className={`
+              flex min-h-20 flex-col justify-between
+              rounded-lg border p-2.5
+              ${
+                isPumpOn
+                  ? "border-emerald-500/30 bg-emerald-500/10"
+                  : "border-zinc-800 bg-zinc-950/50"
+              }
+            `}
+          >
+            <div className="flex items-center gap-1.5">
+              <Power
+                className={`
+                  size-3.5
+                  ${
+                    isPumpOn
+                      ? "text-emerald-400"
+                      : "text-zinc-500"
+                  }
+                `}
+              />
+
+              <span className="text-[10px] text-zinc-400">
+                Trạng thái bơm
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`
+                    size-1.5 rounded-full
+                    ${
+                      isPumpOn
+                        ? "bg-emerald-400"
+                        : "bg-zinc-600"
+                    }
+                  `}
+                />
+
+                <span
+                  className={`
+                    text-xs font-semibold
+                    ${
+                      isPumpOn
+                        ? "text-emerald-400"
+                        : "text-zinc-300"
+                    }
+                  `}
+                >
+                  {isPumpOn ? "Đang bật" : "Đang tắt"}
+                </span>
+              </div>
+            </div>
+          </div>
 
           <SensorMetricCard
             icon={Sprout}
@@ -217,6 +297,64 @@ const DeviceDataCard = ({ device }) => {
                 : null
             }
           />
+        </div>
+
+        {/* PUMP CONTROL */}
+        <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-2.5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-medium text-zinc-300">
+                Điều khiển máy bơm
+              </p>
+
+              <p className="mt-0.5 text-[9px] text-zinc-500">
+                {normalizedStatus === "online"
+                  ? "Thiết bị sẵn sàng nhận lệnh"
+                  : "Thiết bị đang ngoại tuyến"}
+              </p>
+            </div>
+
+            <span
+              className={`
+                rounded-full px-2 py-0.5
+                text-[9px] font-medium
+                ${
+                  isPumpOn
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-zinc-800 text-zinc-400"
+                }
+              `}
+            >
+              {isPumpOn ? "ON" : "OFF"}
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canControlPump}
+            onClick={handleTogglePump}
+            className={`
+              h-8 w-full text-[10px]
+              ${
+                isPumpOn
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
+              }
+            `}
+          >
+            {isPumpUpdating ? (
+              <>
+                <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+                Đang gửi lệnh
+              </>
+            ) : (
+              <>
+                <Power className="mr-1.5 size-3.5" />
+                {isPumpOn ? "Tắt máy bơm" : "Bật máy bơm"}
+              </>
+            )}
+          </Button>
         </div>
 
         {/* SOIL MOISTURE */}

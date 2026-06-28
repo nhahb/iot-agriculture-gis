@@ -15,6 +15,10 @@ import FieldInfoPanel from '@/components/field/FieldInfoPanel';
 import DeviceDataPanel from '@/components/device/DeviceDataPanel';
 import DeviceHistory from '@/components/device/DeviceHistory';
 
+const {
+  setNotifications,
+} = '@/context/NotificationContext';
+
 import { updateFieldLayers } from '@/map/fieldLayers';
 import { updateDeviceLayers } from '@/map/deviceLayers';
 import { updateSensorHeatmapLayer, removeSensorHeatmapLayer } from '@/map/heatmapLayers';
@@ -50,11 +54,12 @@ const Dashboard = () => {
 
   const { fields, fetchFields, createField, updateField, deleteField } = useField();
 
-  const { devices, setDevices, createDevice, fetchDevices } = useDevice();
+  const { devices, setDevices, createDevice, fetchDevices, controlPump } = useDevice();
 
   useSensorSocket({
     fieldId: selectedField ? selectedField.properties.id : null,
     setDevices,
+    setNotifications
   });
 
   const isPointInPolygon = (pointFeature) => {
@@ -743,6 +748,7 @@ const Dashboard = () => {
                 field={selectedField}
                 devices={devices}
                 selectedDevice={selectedDevice}
+                controlPump={controlPump}
                 onClose={() => {
                   setSelectedField(null);
                   setSelectedDevice(null);

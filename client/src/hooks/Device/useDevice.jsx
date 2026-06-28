@@ -37,8 +37,28 @@ const useDevice = () => {
         return fetchedDevices;
     };
 
+            const controlPump = async (
+        deviceId,
+        nextPumpState
+        ) => {
+        const pumpCommand =
+            nextPumpState === true ||
+            nextPumpState === "on"
+            ? "on"
+            : "off";
 
-    return { devices, setDevices, createDevice, fetchDevices };
+        const response = await axiosPrivate.patch(
+            `/device/${deviceId}/pump`,
+            {
+            pump: pumpCommand,
+            }
+        );
+
+        return response.data;
+        };
+
+
+    return { devices, setDevices, createDevice, fetchDevices, controlPump };
 };
 
 export default useDevice;

@@ -157,7 +157,7 @@ export default function SidebarFooterContent() {
                     focus:bg-zinc-800 focus:text-white
                   "
                 >
-                  <Link to="/notifications">
+                  <Link to="/user/notifications">
                     <Bell className="size-4" />
                     Thông báo
                   </Link>
@@ -171,7 +171,7 @@ export default function SidebarFooterContent() {
                     focus:bg-zinc-800 focus:text-white
                   "
                 >
-                  <Link to="/settings">
+                  <Link to="user/settings">
                     <Settings className="size-4" />
                     Cài đặt
                   </Link>
